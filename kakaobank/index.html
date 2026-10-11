@@ -7,6 +7,25 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;              /* 메인 페이지 스크롤 차단 */
+            overscroll-behavior: none;     /* 끌어당김/고무줄 효과 차단 */
+        }
+
+        /* 모바일(iOS)에서는 화면에 고정 */
+        @media (max-width: 639px) {
+            body {
+                position: fixed;
+                inset: 0;
+                width: 100%;
+            }
+        }
+
+        /* 내부 스크롤 영역이 끝에 닿아도 바깥으로 스크롤이 전달되지 않게 */
+        #scrollableArea {
+            overscroll-behavior: contain;
+        }
         body {
             font-family: 'Pretendard', sans-serif;
             background-color: #ffffff;
