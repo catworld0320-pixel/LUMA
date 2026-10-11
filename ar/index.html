@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>진짜 AR 드로잉 앱</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #fff;
+        }
+
+        /* 1. 카메라 화면 (배경) */
+        #camera-stream {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+        }
+
+        /* 2. 스케치 이미지가 조작될 캔버스 영역 */
+        #ar-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #drawingCanvas {
+            position: absolute;
+            cursor: grab;
+            transform-origin: center center;
+        }
+
+        /* 3. 상단 및 하단 컨트롤 UI */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        header, footer {
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header {
+            justify-content: space-between;
+        }
+
+        footer {
+            flex-direction: column;
+            gap: 10px;
+            padding-bottom: 30px;
+        }
+
+        .control-row {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.2s;
+        }
+
+        button:active {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: #4cd137;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider-label {
+            font-size: 12px;
+            min-width: 45px;
+            text-align: right;
+        }
+
+        /* 모달 팝업 (배경 제거 여부 확인) */
+        #modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-box {
+            background: #222;
+            padding: 24px;
+            border-radius: 16px;
+            width: 80%;
+            max-width: 320px;
+            text-align: center;
+            border: 1px solid #444;
+        }
+
+        .modal-box h3 {
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .modal-box p {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            border-radius: 8px;
+        }
+
+        .btn-primary {
+            background: #0084ff;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 카메라 스트림 비디오 -->
+    <video id="camera-stream" autoplay playsinline muted></video>
+
+    <!-- 2. 스케치 오버레이 캔버스 -->
+    <div id="ar-container">
+        <canvas id="drawingCanvas"></canvas>
+    </div>
+
+    <!-- 3. UI 레이어 -->
+    <div class="ui-layer">
+        <header>
+            <!-- 파일 입력 요소를 직접 클릭하도록 수정 -->
+            <button id="loadBtn">📁 사진 불러오기</button>
+            <input type="file" id="imageLoader" accept="image/*">
+            <button id="lockBtn" style="background: rgba(255,255,255,0.1);">🔓 잠금 해제</button>
+        </header>
+
+        <footer>
+            <div class="control-row">
+                <span style="font-size: 12px;">투명도</span>
+                <input type="range" id="opacityRange" min="0.05" max="1" step="0.05" value="0.5">
+                <span class="slider-label" id="opacityVal">50%</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 배경 제거 선택 모달 -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <h3>배경 처리</h3>
+            <p>사진의 밝은(흰색) 배경을 투명하게 제거할까요?</p>
+            <div class="modal-buttons">
+                <button id="bgKeepBtn">그대로 쓰기</button>
+                <button id="bgRemoveBtn" class="btn-primary">배경 제거</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('camera-stream');
+        const loadBtn = document.getElementById('loadBtn');
+        const imageLoader = document.getElementById('imageLoader');
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const opacityRange = document.getElementById('opacityRange');
+        const opacityVal = document.getElementById('opacityVal');
+        const lockBtn = document.getElementById('lockBtn');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const bgKeepBtn = document.getElementById('bgKeepBtn');
+        const bgRemoveBtn = document.getElementById('bgRemoveBtn');
+        const arContainer = document.getElementById('ar-container');
+
+        let originalImage = null;
+        let isLocked = false;
+
+        let posX = 0, posY = 0;
+        let scale = 1;
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let initialDist = null;
+
+        // 카메라 초기화
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { exact: "environment" } },
+                    audio: false
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                try {
+                    const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    video.srcObject = fallbackStream;
+                } catch (e) {
+                    console.log("카메라를 실행할 수 없습니다.");
+                }
+            }
+        }
+        initCamera();
+
+        // 버튼 클릭 시 숨겨진 파일 input 강제 실행
+        loadBtn.addEventListener('click', () => {
+            imageLoader.click();
+        });
+
+        // 사진 파일 선택 감지
+        imageLoader.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                originalImage = new Image();
+                originalImage.onload = function() {
+                    modalOverlay.style.display = 'flex';
+                }
+                originalImage.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+
+        function drawImageToCanvas(removeBg = false) {
+            const maxW = window.innerWidth * 0.8;
+            const maxH = window.innerHeight * 0.6;
+            let w = originalImage.width;
+            let h = originalImage.height;
+
+            if (w > maxW || h > maxH) {
+                const ratio = Math.min(maxW / w, maxH / h);
+                w *= ratio;
+                h *= ratio;
+            }
+
+            canvas.width = w;
+            canvas.height = h;
+
+            if (removeBg) {
+                ctx.drawImage(originalImage, 0, 0, w, h);
+                const imgData = ctx.getImageData(0, 0, w, h);
+                const data = imgData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    let r = data[i], g = data[i+1], b = data[i+2];
+                    if (r > 210 && g > 210 && b > 210) {
+                        data[i+3] = 0;
+                    }
+                }
+                ctx.putImageData(imgData, 0, 0);
+            } else {
+                ctx.clearRect(0, 0, w, h);
+                ctx.drawImage(originalImage, 0, 0, w, h);
+            }
+
+            posX = 0;
+            posY = 0;
+            scale = 1;
+            updateTransform();
+            modalOverlay.style.display = 'none';
+        }
+
+        bgKeepBtn.addEventListener('click', () => drawImageToCanvas(false));
+        bgRemoveBtn.addEventListener('click', () => drawImageToCanvas(true));
+
+        function updateTransform() {
+            canvas.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+        }
+
+        arContainer.addEventListener('pointerdown', (e) => {
+            if (isLocked) return;
+            isDragging = true;
+            startX = e.clientX - posX;
+            startY = e.clientY - posY;
+            canvas.setPointerCapture(e.pointerId);
+        });
+
+        arContainer.addEventListener('pointermove', (e) => {
+            if (!isDragging || isLocked) return;
+            posX = e.clientX - startX;
+            posY = e.clientY - startY;
+            updateTransform();
+        });
+
+        arContainer.addEventListener('pointerup', (e) => {
+            isDragging = false;
+            try { canvas.releasePointerCapture(e.pointerId); } catch(err) {}
+        });
+
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2 && !isLocked) {
+                initialDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && initialDist !== null && !isLocked) {
+                const currentDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const zoomFactor = currentDist / initialDist;
+                scale = Math.max(0.2, Math.min(5, scale * zoomFactor));
+                initialDist = currentDist;
+                updateTransform();
+            }
+        });
+
+        window.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                initialDist = null;
+            }
+        });
+
+        opacityRange.addEventListener('input', (e) => {
+            const val = e.target.value;
+            canvas.style.opacity = val;
+            opacityVal.innerText = Math.round(val * 100) + '%';
+        });
+
+        lockBtn.addEventListener('click', () => {
+            isLocked = !isLocked;
+            if (isLocked) {
+                lockBtn.innerText = "🔒 잠금 완료";
+                lockBtn.style.background = "rgba(76, 209, 55, 0.4)";
+                arContainer.style.pointerEvents = 'none';
+            } else {
+                lockBtn.innerText = "🔓 잠금 해제";
+                lockBtn.style.background = "rgba(255, 255, 255, 0.1)";
+                arContainer.style.pointerEvents = 'auto';
+            }
+        });
+
+        canvas.style.opacity = opacityRange.value;
+    </script>
+</body>
+</html>
