@@ -9,7 +9,7 @@
     <style>
         body {
             font-family: 'Pretendard', sans-serif;
-            background-color: #e2e8f0;
+            background-color: #ffffff;
             user-select: none;
         }
         .custom-scroll::-webkit-scrollbar {
@@ -67,17 +67,17 @@
                 </div>
 
                 <!-- 1. WHITE COVER OVER ORIGINAL BALANCE AREA (원래 top 160 → 스크롤 좌표 115) -->
-                <div class="absolute top-[115px] left-[24px] w-[280px] h-[48px] bg-white z-10"></div>
+                <div class="absolute top-[56px] left-[24px] w-[280px] h-[48px] bg-[#FFFFFF] z-20"></div>
 
                 <!-- Editable Balance Input Field (원래 top 155 → 스크롤 좌표 110) -->
-                <div class="absolute top-[50px] left-[27px] w-[280px] h-[52px] z-20 flex items-center">
+                <div class="absolute top-[52px] left-[27px] w-[280px] h-[52px] z-20 flex items-center">
                     <input type="text" id="balanceInput" value="49,663원" 
                         class="w-full text-[39px] font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 p-0 tracking-tight"
                         oninput="updateBalanceDisplay(this.value)">
                 </div>
 
                 <!-- 2. WHITE COVER OVER ORIGINAL TRANSACTION LIST AREA (원래 top 385 → 스크롤 좌표 340, 콘텐츠 끝까지) -->
-                <div class="absolute top-[340px] left-0 right-0 bottom-0 bg-white z-10"></div>
+                <div class="absolute top-[100px] left-0 right-0 bottom-0 bg-white z-10"></div>
 
                 <!-- TRANSACTION CONTAINER -->
                 <div class="relative z-20 px-6 pt-[352px] pb-8 space-y-6">
