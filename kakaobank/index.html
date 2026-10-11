@@ -56,7 +56,9 @@
         }
     </style>
 </head>
+
 <body class="flex justify-center items-center min-h-screen p-0 m-0 sm:py-6">
+    
 
     <!-- Mobile Device Container Frame -->
     <div class="w-full max-w-[430px] bg-white sm:rounded-[36px] shadow-2xl overflow-hidden flex flex-col relative h-[100vh] sm:h-[920px]">
@@ -802,6 +804,32 @@
         function closeAlert() {
             document.getElementById('customAlert').classList.add('hidden');
         }
+        // ===== 전체 위로 올리기 (이 숫자만 바꾸면 됨) =====
+const LIFT = 60;
+
+window.addEventListener('load', function () {
+    // 'top-[...]' 값을 가진 요소들의 top에서 LIFT만큼 뺌
+    const targets = [
+        '[class~="top-[160px]"]',   // 잔액 흰색 가림막
+        '[class~="top-[155px]"]',   // 잔액 입력창
+        '[class~="top-[385px]"]'    // 거래내역 흰색 가림막 + 스크롤 영역
+    ];
+
+    targets.forEach(function (sel) {
+        document.querySelectorAll(sel).forEach(function (el) {
+            const top = parseFloat(getComputedStyle(el).top);
+            el.style.top = (top - LIFT) + 'px';
+        });
+    });
+
+    // 메인 배경 사진: 같은 높이를 유지한 채 위로 이동
+    const bg = document.querySelector('img[alt="background"]');
+    if (bg) {
+        const box = bg.parentElement;
+        box.style.top = (-LIFT) + 'px';
+        box.style.bottom = LIFT + 'px';
+    }
+});
     </script>
 </body>
 </html>
